@@ -1,5 +1,5 @@
 #!/bin/bash
-set -euo pipefail
+set -euox pipefail
 cd $(dirname $0)
 
 die () {
@@ -11,16 +11,16 @@ os_requirements() {
   uname -a | grep -q Darwin >/dev/null 2>&1 || die "This program requires MacOS"
 }
 
-git_requirments() {
+git_requirements() {
   which git >/dev/null 2>&1 || install_git
   if [ -f cli.rb ]
   then
     git pull
-  elif [ -f zoom_report/cli.rb ]
+  elif [ -f zoom-reports/cli.rb ]
   then
     cd zoom_report/
     git pull
-    cd ../
+
   else
     download_source
   fi
@@ -33,7 +33,7 @@ install_git() {
 }
 
 download_source() {
-  git clone git@github.com/ebmeierj/zoom-reports.git
+  git clone -b initial git@github.com:ebmeierj/zoom-reports.git
 }
 
 ruby_requirements() {
