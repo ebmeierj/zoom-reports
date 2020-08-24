@@ -26,3 +26,9 @@ curl https://raw.githubusercontent.com/ebmeierj/zoom-reports/initial/install.sh 
 cd zoom-reports/
 ./run.sh
 ```
+
+### Advanced usage
+* 
+
+### Keeping up to date
+* At any time you can download the latest updates by running the install.sh command again.
