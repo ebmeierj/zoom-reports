@@ -32,3 +32,8 @@ cd zoom-reports/
 
 ### Keeping up to date
 * At any time you can download the latest updates by running the install.sh command again.
+
+### Issues
+* Any issues can be submitted via github
+  * https://github.com/ebmeierj/zoom-reports/issues
+
