@@ -6,36 +6,23 @@
 * MacOS
 
 ### Installation
-##### Install with git
-* What is git?
-  * Git is a repostiory for storing code online.
-* Why use git?
-  * Git allows you to keep up to date with new versions of this software
-* Steps
-  * Update your package manager (this may take several minutes) and install git
+* Open a terminal window 
+  * Find the program named `Terminal` and run it
+* Run the following in your terminal window
 ```
-brew update
-brew install git
+curl https://raw.githubusercontent.com/ebmeierj/zoom-reports/initial/install.sh | bash
 ```
-  * Use git to pull down the code
-```
-git clone https://github.com/firespring/fdp.git ~/zoom-meetings-master/
-
-##### Install from zip
-* Open `https://github.com/ebmeierj/zoom_report/archive/master.zip` in a web browser
-* That should start downloading the code for this project.
-* Move the zip into your home directory and extract it
-```
-mv ~/Downloads/zoom-meetings-master.zip ~/
-unzip ~/zoom-meetings-master.zip -d ~/
-rm -f ~/zoom-meetings-master.zip
-```
-
-* You should now have the zoom report code on your computer
-```
-cd ~/zoom-meetings-master/
-ls
-```
+* This will download the installer and install
+  * git
+    * A program used to manage / distribute software
+  * ruby
+    * A programming language that the zoom report tool is written in
+  * ruby libraries
+    * The 3rd party ruby libraries used for connecting to the Zoom API
 
 ### Usage
-
+* Go to the directory the software was downloaded into and use the `run.sh` command to begin
+```
+cd zoom-reports/
+./run.sh
+```
