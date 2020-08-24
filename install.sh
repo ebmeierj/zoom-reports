@@ -18,9 +18,8 @@ git_requirements() {
     git pull
   elif [ -f zoom-reports/cli.rb ]
   then
-    cd zoom_report/
-    git pull
-
+    ./zoom-reports/install.sh
+    exit $?
   else
     download_source
   fi
