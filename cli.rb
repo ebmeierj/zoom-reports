@@ -1,5 +1,5 @@
 #!/usr/bin/env ruby
-require_relative 'lib/report'
+require_relative 'lib/zoom_reports'
 require 'commander'
 require 'dotenv'
 
