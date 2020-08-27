@@ -1,0 +1,13 @@
+---
+version: '3.7'
+services:
+  reports:
+    image: zoom_reports:latest
+    build:
+      context: .
+      dockerfile: Dockerfile
+    environment:
+      HISTFILE: "/root/.history/bash"
+    volumes:
+    - "../dotfiles/.history:/root/.history:delegated"
+    - ".:/usr/src/app"
