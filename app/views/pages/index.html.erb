@@ -5,15 +5,30 @@
   <div class="panel panel-default">
     <div class="panel-body">
       <ul>
-        <li><strong>Name:</strong> <%= current_user[:name] %></li>
-        <li><strong>Provider:</strong> <%= current_user[:provider] %></li>
-        <li><strong>uID:</strong> <%= current_user[:uid] %></li>
-        <li><strong>Location:</strong> <%= current_user[:location] %></li>
-        <li><strong>Avatar URL:</strong> <%= current_user[:image_url] %></li>
-        <li><strong>URL:</strong> <%= current_user[:url] %></li>
+        <li><strong>uID:</strong> <%= current_user.uid %></li>
+        <li><strong>Provider:</strong> <%= current_user.provider %></li>
+        <li><strong>Name:</strong> <%= current_user.first_name %> <%= current_user.last_name %></li>
+        <li><strong>Email:</strong> <%= current_user.email %></li>
+        <li><strong>Phone:</strong> <%= current_user.phone %></li>
+        <li><strong>Status:</strong> <%= current_user.status %></li>
+        <li><strong>Language:</strong> <%= current_user.language %></li>
+        <li><strong>Timezone:</strong> <%= current_user.timezone %></li>
       </ul>
     </div>
   </div>
+  <div class="page-header">
+    <h1>Here are your upcoming meetings</h1>
+  </div>
+  <div class="panel panel-default">
+    <div class="panel-body">
+      <ul>
+        <% @meetings.each do |meeting| %>
+          <li><%= meeting %></li>
+        <% end %>
+      </ul>
+    </div>
+  </div>
+
 <% else %>
   <div class="jumbotron">
     <h1>Welcome!</h1>

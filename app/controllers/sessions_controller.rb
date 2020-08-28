@@ -1,22 +1,25 @@
+require 'json'
+
 class SessionsController < ApplicationController
   def create
     begin
       @user = user_from_onmiauth(request.env['omniauth.auth'])
-      session[:user] = @user
-      logger.error "SET SESSION TO #{session[:user]}"
-      flash[:success] = "Welcome, #{@user[:name]}"
-    rescue
+      session[:user] = @user.to_json
+      flash[:success] = "Welcome, #{@user[:first_name]}"
+    rescue => e
+      puts e
       flash[:warning] = "There was an error while trying to authenticate you"
     end
+
     redirect_to root_path
   end
 
   def destroy
     if current_user
-      @name = session[:user][:name]
       session.delete(:user)
-      flash[:success] = "#{name} has been logged out"
+      flash[:success] = "Logout successful"
     end
+
     redirect_to root_path
   end
 
@@ -24,12 +27,17 @@ class SessionsController < ApplicationController
 
   def user_from_onmiauth(auth_hash)
     {
-      uid: auth_hash['uid'],
-      provider: auth_hash['provider'],
-      name: auth_hash['info']['name'],
-      location: auth_hash['info']['location'],
-      image_url: auth_hash['info']['image'],
-      url: auth_hash['info']['urls']
+      uid: auth_hash.uid,
+      provider: auth_hash.provider,
+      first_name: auth_hash.extra.raw_info.first_name,
+      last_name: auth_hash.extra.raw_info.last_name,
+      status: auth_hash.extra.raw_info.status,
+      language: auth_hash.extra.raw_info.language,
+      email: auth_hash.extra.raw_info.email,
+      phone_number: auth_hash.extra.raw_info.phone_number,
+      timezone: auth_hash.extra.raw_info.timezone,
+      image_url: auth_hash.extra.raw_info.pic_url,
+      token: auth_hash.credentials.token
     }
   end
 end
