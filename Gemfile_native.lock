@@ -1,0 +1,45 @@
+GEM
+  remote: https://rubygems.org/
+  specs:
+    bindex (0.8.1)
+    bootsnap (1.4.8)
+      msgpack (~> 1.0)
+    byebug (11.1.3)
+    ffi (1.13.1)
+    json (2.3.1)
+    mini_portile2 (2.4.0)
+    msgpack (1.3.3)
+    nio4r (2.5.2)
+    nokogiri (1.10.10)
+      mini_portile2 (~> 2.4.0)
+    puma (4.3.5)
+      nio4r (~> 2.0)
+    sassc (2.4.0)
+      ffi (~> 1.9)
+    sqlite3 (1.4.2)
+    websocket-driver (0.7.3)
+      websocket-extensions (>= 0.1.0)
+    websocket-extensions (0.1.5)
+
+PLATFORMS
+  ruby
+
+DEPENDENCIES
+  bindex (= 0.8.1)
+  bootsnap (= 1.4.8)
+  byebug (= 11.1.3)
+  ffi (= 1.13.1)
+  json (= 2.3.1)
+  msgpack (= 1.3.3)
+  nio4r (= 2.5.2)
+  nokogiri (= 1.10.10)
+  puma (= 4.3.5)
+  sassc (= 2.4.0)
+  sqlite3 (= 1.4.2)
+  websocket-driver (= 0.7.3)
+
+RUBY VERSION
+   ruby 2.6.6p146
+
+BUNDLED WITH
+   1.17.2

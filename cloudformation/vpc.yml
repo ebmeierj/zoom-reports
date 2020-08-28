@@ -1,0 +1,286 @@
+---
+Description: Creates the VPC, routing tables, and subnets
+Parameters:
+  ApplicationName:
+    Description: The name of the application
+    Type: String
+    MaxLength: 15
+    Default: zoomreports
+
+  MultiAz:
+    Type: String
+    Default: false
+    Description: Whether or not to set up a secondary subnet
+    AllowedValues:
+    - true
+    - false
+
+  IpRange:
+    Description: The IP range that will be used for the subnets
+    Type: String
+    MinLength: 3
+    MaxLength: 7
+    Default: "172.10"
+    AllowedPattern: "(\\d{1,3})\\.(\\d{1,3})"
+
+Conditions:
+  isMultiAz: !Equals [!Ref MultiAz, 'true']
+
+Resources:
+  internetGateway:
+    Type: AWS::EC2::InternetGateway
+    Properties:
+      Tags:
+      - Key: Name
+        Value: !Ref ApplicationName
+
+  vpc:
+    Type: AWS::EC2::VPC
+    Properties:
+      CidrBlock: !Sub ${IpRange}.0.0/16
+      EnableDnsSupport: true
+      EnableDnsHostnames: true
+      Tags:
+      - Key: Name
+        Value: !Ref ApplicationName
+      - Key: Purpose
+        Value: !Sub The VPC for ${ApplicationName}
+
+  flowLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub FlowLog/${ApplicationName}/${vpc}
+      RetentionInDays: 365
+
+  flowLogsRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Statement:
+        - Effect: Allow
+          Principal:
+            Service: vpc-flow-logs.amazonaws.com
+          Action:
+          - sts:AssumeRole
+      Path: /
+      Policies:
+      - PolicyName: flowlog-log
+        PolicyDocument:
+          Statement:
+          - Effect: Allow
+            Action:
+            - ec2:CreateFlowLogs
+            Resource: '*'
+      ManagedPolicyArns:
+      - arn:aws:iam::aws:policy/CloudWatchAgentServerPolicy
+
+  flowLog:
+    Type: AWS::EC2::FlowLog
+    Properties:
+      DeliverLogsPermissionArn: !GetAtt flowLogsRole.Arn
+      LogGroupName: !Ref flowLogGroup
+      ResourceId: !Ref vpc
+      ResourceType: VPC
+      TrafficType: ALL
+
+  attachInternetGatewayToVpc:
+    Type: AWS::EC2::VPCGatewayAttachment
+    Properties:
+      InternetGatewayId: !Ref internetGateway
+      VpcId: !Ref vpc
+
+  publicRouteTable:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref vpc
+      Tags:
+      - Key: Name
+        Value: !Sub public-${ApplicationName}
+
+  internetGatewayRoute:
+    Type: AWS::EC2::Route
+    Properties:
+      RouteTableId: !Ref publicRouteTable
+      DestinationCidrBlock: 0.0.0.0/0
+      GatewayId: !Ref internetGateway
+
+  primaryPublicSubnetRouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref primaryPublicSubnet
+      RouteTableId: !Ref publicRouteTable
+
+  primaryPublicSubnet:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref vpc
+      CidrBlock: !Sub ${IpRange}.0.0/23
+      AvailabilityZone: !Select [0, !GetAZs {Ref: 'AWS::Region'}]
+      Tags:
+      - Key: SubnetType
+        Value: Public
+      - Key: Name
+        Value: !Sub primary-public-${ApplicationName}
+
+  secondaryPublicSubnetRouteTableAssociation:
+    Condition: isMultiAz 
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref secondaryPublicSubnet
+      RouteTableId: !Ref publicRouteTable
+
+  secondaryPublicSubnet:
+    Condition: isMultiAz 
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref vpc
+      CidrBlock: !Sub ${IpRange}.2.0/23
+      AvailabilityZone: !Select [1, !GetAZs {Ref: 'AWS::Region'}]
+      Tags:
+      - Key: SubnetType
+        Value: Public
+      - Key: Name
+        Value: !Sub secondary-public-${ApplicationName}
+
+#  primaryPrivateEip:
+#    Type: AWS::EC2::EIP
+#    Properties:
+#      Domain: vpc
+#
+#  primaryPrivateNatGateway:
+#    Type: AWS::EC2::NatGateway
+#    Properties:
+#      AllocationId: !GetAtt primaryPrivateEip.AllocationId
+#      SubnetId: !Ref primaryPublicSubnet
+#
+#  primaryPrivateRouteTable:
+#    Type: AWS::EC2::RouteTable
+#    Properties:
+#      VpcId: !Ref vpc
+#      Tags:
+#      - Key: Name
+#        Value: !Sub primary-private-${ApplicationName}
+#
+#  primaryPrivateRoute:
+#    Type: AWS::EC2::Route
+#    Properties:
+#      RouteTableId: !Ref primaryPrivateRouteTable
+#      DestinationCidrBlock: 0.0.0.0/0
+#      NatGatewayId: !Ref primaryPrivateNatGateway
+#
+#  primaryPrivateSubnet:
+#    Type: AWS::EC2::Subnet
+#    Properties:
+#      VpcId: !Ref vpc
+#      CidrBlock: !Sub ${IpRange}.10.0/23
+#      AvailabilityZone: !Select [0, !GetAZs {Ref: 'AWS::Region'}]
+#      Tags:
+#      - Key: SubnetType
+#        Value: Private
+#      - Key: Name
+#        Value: !Sub primary-private-${ApplicationName}
+#
+#  primaryPrivateSubnetRouteTableAssociation:
+#    Type: AWS::EC2::SubnetRouteTableAssociation
+#    Properties:
+#      SubnetId: !Ref primaryPrivateSubnet
+#      RouteTableId: !Ref primaryPrivateRouteTable
+#
+#  secondaryPrivateEip:
+#    Condition: isMultiAz 
+#    Type: AWS::EC2::EIP
+#    Properties:
+#      Domain: vpc
+#
+#  secondaryPrivateNatGateway:
+#    Condition: isMultiAz 
+#    Type: AWS::EC2::NatGateway
+#    Properties:
+#      AllocationId: !GetAtt secondaryPrivateEip.AllocationId
+#      SubnetId: !Ref secondaryPublicSubnet
+#
+#  secondaryPrivateRouteTable:
+#    Condition: isMultiAz 
+#    Type: AWS::EC2::RouteTable
+#    Properties:
+#      VpcId: !Ref vpc
+#      Tags:
+#      - Key: Name
+#        Value: !Sub secondary-private-${ApplicationName}
+#
+#  secondaryPrivateRoute:
+#    Condition: isMultiAz 
+#    Type: AWS::EC2::Route
+#    Properties:
+#      RouteTableId: !Ref secondaryPrivateRouteTable
+#      DestinationCidrBlock: 0.0.0.0/0
+#      NatGatewayId: !Ref secondaryPrivateNatGateway
+#
+#  secondaryPrivateSubnet:
+#    Condition: isMultiAz 
+#    Type: AWS::EC2::Subnet
+#    Properties:
+#      VpcId: !Ref vpc
+#      CidrBlock: !Sub ${IpRange}.12.0/23
+#      AvailabilityZone: !Select [1, !GetAZs {Ref: 'AWS::Region'}]
+#      Tags:
+#      - Key: SubnetType
+#        Value: Private
+#      - Key: Name
+#        Value: !Sub secondary-private-${ApplicationName}
+#
+#  secondaryPrivateSubnetRouteTableAssociation:
+#    Condition: isMultiAz 
+#    Type: AWS::EC2::SubnetRouteTableAssociation
+#    Properties:
+#      SubnetId: !Ref secondaryPrivateSubnet
+#      RouteTableId: !Ref secondaryPrivateRouteTable
+
+Outputs:
+  internetGateway:
+    Value: !Ref internetGateway
+#    Export:
+#      Name: givesource-internet-gateway
+
+  vpc:
+    Value: !Ref vpc
+#    Export:
+#      Name: givesource-vpc
+
+  vpcCidr:
+    Value: !GetAtt vpc.CidrBlock
+#    Export:
+#      Name: givesource-vpc-cidr
+
+  aclVpc:
+    Value: !GetAtt vpc.DefaultNetworkAcl
+#    Export:
+#      Name: givesource-vpc-acl
+
+  ipRange:
+    Value: !Ref IpRange
+#    Export:
+#      Name: givesource-vpc-ip-range
+
+  primaryPublicSubnet:
+    Value: !Ref primaryPublicSubnet
+#    Export:
+#      Name: givsource-primary-public-subnet
+
+  secondaryPublicSubnet:
+    Condition: isMultiAz 
+    Value: !Ref secondaryPublicSubnet
+#    Export:
+#      Name: givesource-secondary-public-subnet
+
+#  primaryPrivateSubnet:
+#    Value: !Ref primaryPrivateSubnet
+##    Export:
+##      Name: givsource-primary-private-subnet
+#
+#  secondaryPrivateSubnet:
+#    Condition: isMultiAz 
+#    Value: !Ref secondaryPrivateSubnet
+##    Export:
+##      Name: givesource-secondary-private-subnet
+

@@ -1,0 +1,352 @@
+---
+Description: Creates an ecs cluster for the app
+Parameters:
+  ApplicationName:
+    Description: The name of the application
+    Type: String
+    MaxLength: 15
+    Default: zoomreports
+
+  Tag:
+    Type: String
+    Default: latest
+    Description: The image tag to deploy for each datastore container
+
+  VpcId:
+    Type: AWS::EC2::VPC::Id
+
+  SubnetIds:
+    Type: List<AWS::EC2::Subnet::Id>
+
+  HostedZoneId:
+    Type: String
+    Default: Z1KCQ1D9PMQQU9
+
+  Domain:
+    Type: String
+    Default: firespringdev.com
+
+Resources:
+  appConfigKey:
+    Type: AWS::KMS::Key
+    Properties:
+      Description: Key used to encrypt/decrypt app config
+      EnableKeyRotation: true
+      KeyPolicy:
+        Id: !Sub ${ApplicationName}-config-key
+        Version: 2012-10-17
+        Statement:
+        - Sid: !Sub ${ApplicationName} Key Policy
+          Effect: Allow
+          Principal:
+            AWS:
+            - !Sub arn:aws:iam::${AWS::AccountId}:root
+          Action: kms:*
+          Resource: '*'
+
+  appConfigKeyAlias:
+    Type: AWS::KMS::Alias
+    Properties:
+      AliasName: !Sub alias/config/${ApplicationName}
+      TargetKeyId:
+        Ref: appConfigKey
+
+  appConfigKeyPolicy:
+    Type: AWS::IAM::Policy
+    Properties:
+      PolicyName: !Sub ${ApplicationName}-config-key
+      PolicyDocument:
+        Version: 2012-10-17
+        Statement:
+        - Effect: Allow
+          Action:
+          - kms:Decrypt
+          Resource:
+          - !GetAtt appConfigKey.Arn
+      Roles:
+      - !Ref appRole
+
+  logGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName:
+        !Sub ${ApplicationName}/app
+      RetentionInDays: 7
+
+  appCluster:
+    Type: AWS::ECS::Cluster
+    Properties:
+      ClusterName: !Sub ${ApplicationName}-cluster
+
+  appExecutionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Statement:
+        - Effect: Allow
+          Principal:
+            Service:
+            - ecs-tasks.amazonaws.com
+          Action:
+          - sts:AssumeRole
+      Path: /
+      ManagedPolicyArns:
+      - arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy
+
+  appRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Statement:
+        - Effect: Allow
+          Principal:
+            Service:
+            - ecs-tasks.amazonaws.com
+          Action:
+          - sts:AssumeRole
+      Path: "/"
+      Policies:
+      - PolicyName: put-metric-data
+        PolicyDocument:
+          Version: 2012-10-17
+          Statement:
+          - Effect: Allow
+            Action:
+            - cloudwatch:PutMetricData
+            Resource: "*"
+      - PolicyName: app-config-decrypt
+        PolicyDocument:
+          Version: 2012-10-17
+          Statement:
+          - Effect: Allow
+            Action:
+            - kms:Decrypt
+            Resource:
+            - !GetAtt appConfigKey.Arn
+
+      - PolicyName: app-param-access
+        PolicyDocument:
+          Version: 2012-10-17
+          Statement:
+          - Effect: Allow
+            Action:
+            - ssm:GetParameter
+            Resource:
+            - !Sub arn:aws:ssm:*:*:parameter/${ApplicationName}/*
+
+  appConfigKeyParameter:
+    Type: AWS::SSM::Parameter
+    Properties:
+      Description: !Sub The ${ApplicationName}'s app config key id
+      Name: !Sub /${ApplicationName}/kms/id
+      Type: String
+      Value: !Ref appConfigKey
+
+  appSecretKeyBaseParameter:
+    Type: AWS::SSM::Parameter
+    Properties:
+      Description: The secret key base for the app
+      Name: !Sub /${ApplicationName}/secret/key_base
+      Type: String
+      Value: CHANGEME
+
+  appOauthClientIdParameter:
+    Type: AWS::SSM::Parameter
+    Properties:
+      Description: The oauth client id for the app
+      Name: !Sub /${ApplicationName}/oauth/client_id
+      Type: String
+      Value: CHANGEME
+
+  appOauthClientSecretParameter:
+    Type: AWS::SSM::Parameter
+    Properties:
+      Description: The oauth client secret for the app
+      Name: !Sub /${ApplicationName}/oauth/client_secret
+      Type: String
+      Value: CHANGEME
+
+  appCertificateChainedAuthorityParameter:
+    Type: AWS::SSM::Parameter
+    Properties:
+      Description: The certificate chained authority for the app
+      Name: !Sub /${ApplicationName}/certificate/chained_authority
+      Type: String
+      Value: CHANGEME
+
+  appCertificateKeyParameter:
+    Type: AWS::SSM::Parameter
+    Properties:
+      Description: The certificate key for the application
+      Name: !Sub /${ApplicationName}/certificate/key
+      Type: String
+      Value: CHANGEME
+
+  elbSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: !Sub Ingress/egress rules for the ${ApplicationName} load balancer
+      VpcId: !Ref VpcId
+      SecurityGroupIngress: []
+      SecurityGroupEgress: []
+      Tags:
+      - Key: Name
+        Value: !Sub ${ApplicationName}-elb
+
+  world443ElbIngress:
+    Type: AWS::EC2::SecurityGroupIngress
+    Properties:
+      Description: Allows world access to the app load balancer
+      GroupId: !Ref elbSecurityGroup
+      IpProtocol: tcp
+      FromPort: 443
+      ToPort: 443
+      CidrIp: 104.218.69.86/32
+      #CidrIp: 0.0.0.0/0
+
+  appSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: !Sub Ingress/egress rules for the ${ApplicationName} app
+      VpcId: !Ref VpcId
+      SecurityGroupIngress: []
+      SecurityGroupEgress: []
+      Tags:
+      - Key: Name
+        Value: !Sub ${ApplicationName}-app
+
+  elb443AppIngress:
+    Type: AWS::EC2::SecurityGroupIngress
+    Properties:
+      Description: Allows app load balancer to the app server
+      GroupId: !Ref appSecurityGroup
+      IpProtocol: tcp
+      FromPort: 443
+      ToPort: 443
+      SourceSecurityGroupId: !Ref elbSecurityGroup
+
+  elbCertificate:
+    Type: AWS::CertificateManager::Certificate
+    Properties:
+      DomainName: !Sub ${ApplicationName}.${Domain}
+      ValidationMethod: DNS
+
+  elb:
+    Type: AWS::ElasticLoadBalancingV2::LoadBalancer
+    Properties:
+      Name: !Ref AWS::StackName
+      Scheme: internet-facing
+      Subnets: !Ref SubnetIds
+      SecurityGroups:
+      - !Ref elbSecurityGroup
+
+  elbListener:
+    Type: AWS::ElasticLoadBalancingV2::Listener
+    Properties:
+      Certificates:
+      - CertificateArn: !Ref elbCertificate
+      DefaultActions:
+      - Type: forward
+        TargetGroupArn: !Ref elbTargetGroup
+      LoadBalancerArn: !Ref elb
+      Port: 443
+      Protocol: HTTPS
+      SslPolicy: ELBSecurityPolicy-TLS-1-1-2017-01
+
+  elbTargetGroup:
+    Type: AWS::ElasticLoadBalancingV2::TargetGroup
+    Properties:
+      Name: !Ref AWS::StackName
+      Port: 443
+      Protocol: HTTPS
+      TargetGroupAttributes:
+      - Key: deregistration_delay.timeout_seconds
+        Value: 180
+      VpcId: !Ref VpcId
+      HealthCheckIntervalSeconds: 60
+      HealthCheckProtocol: HTTPS
+      HealthCheckTimeoutSeconds: 10
+      HealthyThresholdCount: 2
+      HealthCheckPath: /
+      Matcher:
+        HttpCode: 200
+      UnhealthyThresholdCount: 5
+      TargetType: ip
+    DependsOn:
+      - elb
+
+  elbRecordSet:
+    Type: AWS::Route53::RecordSetGroup
+    Properties:
+      HostedZoneId: !Ref HostedZoneId
+      Comment: !Sub Record set fot the ${ApplicationName} app
+      RecordSets:
+      - Name: !Sub ${ApplicationName}.${Domain}
+        Type: A
+        AliasTarget:
+          HostedZoneId: !Sub ${elb.CanonicalHostedZoneID}
+          DNSName: !Sub ${elb.DNSName}
+
+  appTask:
+    Type: AWS::ECS::TaskDefinition
+    Properties:
+      Family: !Sub ${ApplicationName}-app
+      RequiresCompatibilities:
+      - FARGATE
+      ExecutionRoleArn: !Ref appExecutionRole
+      TaskRoleArn: !Ref appRole
+      Cpu: 512
+      Memory: 1024
+      NetworkMode: awsvpc
+      ContainerDefinitions:
+      - Name: !Ref ApplicationName
+        Essential: true
+        Image: !Sub ${AWS::AccountId}.dkr.ecr.${AWS::Region}.amazonaws.com/${ApplicationName}:${Tag}
+        PortMappings:
+        - ContainerPort: 443
+          Protocol: tcp
+        Environment:
+        - Name: TZ
+          Value: UTC
+        - Name: AWS_DEFAULT_REGION
+          Value: !Ref AWS::Region
+        - Name: SSM_SECRET_KEY_BASE_PARAMETER
+          Value: !Ref appSecretKeyBaseParameter
+        - Name: SSM_OAUTH_CLIENT_ID_PARAMETER
+          Value: !Ref appOauthClientIdParameter
+        - Name: SSM_OAUTH_CLIENT_SECRET_PARAMETER
+          Value: !Ref appOauthClientSecretParameter
+        - Name: RAILS_ENV
+          Value: development
+#          Value: production
+        Ulimits:
+        - HardLimit: 65536
+          Name: nofile
+          SoftLimit: 65536
+        LogConfiguration:
+          LogDriver: awslogs
+          Options:
+            awslogs-group: !Ref logGroup
+            awslogs-region: !Ref AWS::Region
+            awslogs-stream-prefix: "."
+
+  appService:
+    Type: AWS::ECS::Service
+    Properties:
+      ServiceName: !Sub ${ApplicationName}-service
+      LaunchType: FARGATE
+      Cluster: !Ref appCluster
+      DesiredCount: 0
+      TaskDefinition: !Ref appTask
+      HealthCheckGracePeriodSeconds: 120
+      LoadBalancers:
+      - ContainerName: !Ref ApplicationName
+        ContainerPort: 443
+        TargetGroupArn: !Ref elbTargetGroup
+      NetworkConfiguration:
+        AwsvpcConfiguration:
+          AssignPublicIp: ENABLED
+          SecurityGroups:
+          - !Ref appSecurityGroup
+          Subnets: !Ref SubnetIds
+

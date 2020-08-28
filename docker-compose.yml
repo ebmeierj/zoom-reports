@@ -1,0 +1,17 @@
+---
+version: '3.7'
+services:
+  app:
+    image: zoomreports:latest
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+    - "443:443"
+    environment:
+      RAILS_ENV: development
+      HISTFILE: "/root/.history/bash"
+    volumes:
+    - "../dotfiles/.history:/root/.history:delegated"
+    - ".:/usr/src/app"
+    - "/usr/src/app/node_modules"

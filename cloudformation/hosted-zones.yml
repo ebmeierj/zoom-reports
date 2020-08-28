@@ -1,0 +1,41 @@
+---
+AWSTemplateFormatVersion: '2010-09-09'
+Description: Creates the Hosted Zone
+Parameters:
+  ApplicationName:
+    Description: The name of the application
+    Type: String
+    MaxLength: 15
+    Default: zoomreports
+
+Resources:
+#  publicNamespace:
+#    Type: AWS::ServiceDiscovery::PublicDnsNamespace
+#    Properties:
+#      Description: !Sub Public DNS Zone for ${ApplicationName}
+#      Name: !Sub ${ApplicationName}.firespringdev.com
+
+  appRespository:
+    Type: AWS::ECR::Repository
+    Properties:
+      RepositoryName: !Ref ApplicationName
+      LifecyclePolicy:
+        LifecyclePolicyText: !Sub
+        - >
+          {
+            "rules": [
+              {
+                "rulePriority": 1,
+                "description": "Only keep untagged images for 14 days",
+                "selection": {
+                  "tagStatus": "untagged",
+                  "countType": "sinceImagePushed",
+                  "countUnit": "days",
+                  "countNumber": 14
+                },
+                "action": { "type": "expire" }
+              }
+            ]
+          }
+        - {}
+

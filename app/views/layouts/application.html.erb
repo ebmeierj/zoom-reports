@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>ZoomReports</title>
+    <%= csrf_meta_tags %>
+    <%= csp_meta_tag %>
+
+    <%= stylesheet_link_tag 'application', media: 'all' %>
+    <%= javascript_pack_tag 'application' %>
+  </head>
+
+  <body>
+    <nav class="navbar navbar-inverse">
+      <div class="container">
+        <div class="navbar-header">
+          <%= link_to 'Firespring', 'https://firespring.com', class: 'navbar-brand' %>
+        </div>
+        <div id="navbar">
+          <% if current_user %>
+            <ul class="nav navbar-nav pull-right">
+              <li><%= image_tag current_user.image_url, alt: current_user.name %></li>
+              <li><%= link_to 'Log Out', logout_path, method: :delete %></li>
+            </ul>
+          <% else %>
+            <ul class="nav navbar-nav pull-right">
+              <li><%= link_to 'Login with Zoom', "https://zoom.us/oauth/authorize?response_type=code&client_id=#{ENV['OAUTH_CLIENT_ID']}&redirect_uri=https://zoomreports.firespringdev.com/auth/zoom/callback" %></li>
+            </ul>
+          <% end %>
+        </div>
+      </div>
+    </nav>
+
+    <div class="container">
+      <% flash.each do |key, value| %>
+        <div class="alert alert-<%= key %>">
+          <%= value %>
+        </div>
+      <% end %>
+
+      <%= yield %>
+    </div>
+  </body>
+</html>
